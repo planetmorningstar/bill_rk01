@@ -10,6 +10,7 @@ import requests
 import json
 from requests.structures import CaseInsensitiveDict
 from picamera2 import Picamera2
+import numpy as np
 
 runner = None
 show_camera = True
