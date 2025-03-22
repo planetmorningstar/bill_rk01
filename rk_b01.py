@@ -142,6 +142,7 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
                 
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)  # Convert to grayscale
                 frame = cv2.resize(frame, (96, 96))  # Resize to match model input size
                 frame = frame.astype(np.uint8)  # Ensure data type is uint8
                 frame = frame.flatten().tolist()  # Convert to a list of numbers
