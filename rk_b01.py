@@ -147,9 +147,9 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
                 
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-                frame = cv2.resize(frame, (96, 96))
-                frame = frame.astype(np.uint8)
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Changed to BGR format
+                frame = cv2.resize(frame, (96, 96))  # Ensure correct size
+                frame = frame.astype(np.float32)  # Ensure correct data type
                 frame = frame.flatten().tolist()
                 
                 print("Attempting classification...")
