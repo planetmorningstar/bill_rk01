@@ -10,7 +10,6 @@ import requests
 import json
 from requests.structures import CaseInsensitiveDict
 from picamera2 import Picamera2
-import numpy as np
 
 runner = None
 show_camera = True
@@ -181,11 +180,8 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
 
-                # Convert frame to RGB format
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
                 # Perform inference
-                res = runner.classify(frame_rgb)
+                res = runner.classify(frame)
                 if "classification" in res["result"].keys():
                     print('Result (%d ms.) ' % (res['timing']['dsp'] + res['timing']['classification']), end='')
                     for label in labels:
