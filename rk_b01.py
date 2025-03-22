@@ -142,7 +142,6 @@ def main(argv):
                 if next_frame > now():
                     time.sleep((next_frame - now()) / 1000)
                 
-                picam2.flush_buffers()
                 frame = picam2.capture_array()
                 if frame is None or frame.size == 0:
                     print("Error: Could not capture frame.")
