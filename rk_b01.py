@@ -181,8 +181,11 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
 
+                # Convert frame to RGB format
+                frame_rgb = np.ascontiguousarray(frame[:, :, :3])  # Ensure the frame is in RGB format
+
                 # Perform inference
-                res = runner.classify(frame)
+                res = runner.classify(frame_rgb)
                 if "classification" in res["result"].keys():
                     print('Result (%d ms.) ' % (res['timing']['dsp'] + res['timing']['classification']), end='')
                     for label in labels:
