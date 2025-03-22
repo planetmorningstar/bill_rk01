@@ -137,6 +137,7 @@ def main(argv):
                 if next_frame > now():
                     time.sleep((next_frame - now()) / 1000)
                 
+                picam2.flush_buffers()
                 frame = picam2.capture_array()
                 if frame is None or frame.size == 0:
                     print("Error: Could not capture frame.")
@@ -147,15 +148,24 @@ def main(argv):
                 frame = frame.astype(np.uint8)  # Ensure data type is uint8
                 frame = frame.flatten().tolist()  # Convert to a list of numbers
                 
-                res = runner.classify(frame)
-                if "classification" in res["result"]:
-                    print(f'Result ({res["timing"]["dsp"] + res["timing"]["classification"]} ms.)')
-                    for label in labels:
-                        score = res['result']['classification'][label]
-                        if score > 0.9:
-                            final_weight = find_weight()
-                            list_com(label, final_weight)
-                            print(f'{label} detected')
+                try:
+                    start_time = time.time()
+                    res = runner.classify(frame)
+                    if time.time() - start_time > 5:
+                        print("Warning: Classification took too long!")
+                    if "classification" in res["result"]:
+                        print(f'Result ({res["timing"]["dsp"] + res["timing"]["classification"]} ms.)')
+                        for label in labels:
+                            score = res['result']['classification'][label]
+                            if score > 0.9:
+                                final_weight = find_weight()
+                                list_com(label, final_weight)
+                                print(f'{label} detected')
+                    else:
+                        print("No classification results, retrying...")
+                except Exception as e:
+                    print(f"Error in classification: {e}")
+
                 next_frame = now() + 100
     except Exception as e:
         print(f'Error: {traceback.format_exc()}')
@@ -164,14 +174,3 @@ def main(argv):
             runner.stop()
         picam2.stop()
         GPIO.cleanup()
-
-if __name__ == "__main__":
-    main(sys.argv[1:])
-
-# Possible Issues & Fixes:
-# 1. Invalid number of features: Ensure frame is resized to match model input.
-# 2. Camera not capturing frames: Check if Picamera2 is properly initialized.
-# 3. Network timeout: Increase timeout in requests.post.
-# 4. Weight measurement errors: Recalibrate the HX711 sensor and check wiring.
-# 5. Incorrect object detection: Verify model training and dataset quality.
-
