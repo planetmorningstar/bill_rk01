@@ -167,3 +167,11 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+# Possible Issues & Fixes:
+# 1. Invalid number of features: Ensure frame is resized to match model input.
+# 2. Camera not capturing frames: Check if Picamera2 is properly initialized.
+# 3. Network timeout: Increase timeout in requests.post.
+# 4. Weight measurement errors: Recalibrate the HX711 sensor and check wiring.
+# 5. Incorrect object detection: Verify model training and dataset quality.
+
