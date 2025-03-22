@@ -147,19 +147,21 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
                 
-                # Debug: print shape and range before processing
+                # Debug: print captured frame info
                 print(f"Captured frame shape: {frame.shape}, dtype: {frame.dtype}, min: {np.min(frame)}, max: {np.max(frame)}")
                 
-                # Incorrect Image Format for Classification:
-                # Convert frame to grayscale if model expects 1-channel input.
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)  # Changed to grayscale
-                # Incorrect Frame Dimensions:
-                # Resize to expected dimensions. (Change (96, 96) if your model expects a different size.)
+                # Convert BGRA (4 channels) to grayscale properly
+                # Use COLOR_BGRA2GRAY because our frame has 4 channels.
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
+                
+                # Resize to expected size (modify if your model expects a different size)
                 frame = cv2.resize(frame, (96, 96))
-                # Check Model File: Ensure the model file is valid (use 'file <path>' in terminal)
-                # Increase Classification Timeout if needed.
-                frame = frame.astype(np.float32)  # Ensure correct data type
-                frame = frame.flatten().tolist()  # Flatten for classification
+                
+                # Normalize pixel values to [0, 1]
+                frame = frame.astype(np.float32) / 255.0
+                
+                # Flatten the image to create a 1D list (9216 features for 96x96 grayscale)
+                frame = frame.flatten().tolist()
                 
                 print(f"Processed frame length: {len(frame)} (expected: 96*96 = 9216)")
                 
