@@ -135,7 +135,7 @@ def main(argv):
             config = picam2.create_preview_configuration(main={"size": (640, 480)})
             picam2.configure(config)
             picam2.start()
-            time.sleep(2)
+            time.sleep(2)  # Allow camera to warm up
             
             next_frame = 0
             while True:
@@ -147,22 +147,36 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
                 
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)  # Convert to grayscale
-                frame = cv2.resize(frame, (96, 96))  # Ensure correct size
+                # Debug: print shape and range before processing
+                print(f"Captured frame shape: {frame.shape}, dtype: {frame.dtype}, min: {np.min(frame)}, max: {np.max(frame)}")
+                
+                # Incorrect Image Format for Classification:
+                # Convert frame to grayscale if model expects 1-channel input.
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)  # Changed to grayscale
+                # Incorrect Frame Dimensions:
+                # Resize to expected dimensions. (Change (96, 96) if your model expects a different size.)
+                frame = cv2.resize(frame, (96, 96))
+                # Check Model File: Ensure the model file is valid (use 'file <path>' in terminal)
+                # Increase Classification Timeout if needed.
                 frame = frame.astype(np.float32)  # Ensure correct data type
-                frame = frame.flatten().tolist()
+                frame = frame.flatten().tolist()  # Flatten for classification
+                
+                print(f"Processed frame length: {len(frame)} (expected: 96*96 = 9216)")
                 
                 print("Attempting classification...")
                 try:
                     start_time = time.time()
                     res = runner.classify(frame)
-                    if time.time() - start_time > 5:
+                    elapsed = time.time() - start_time
+                    if elapsed > 5:
                         print("Warning: Classification took too long!")
                     if "classification" in res["result"]:
                         print(f'Result ({res["timing"]["dsp"] + res["timing"]["classification"]} ms.)')
+                        # Lower threshold temporarily for debugging (e.g., 0.5 instead of 0.9)
                         for label in labels:
                             score = res['result']['classification'][label]
-                            if score > 0.9:
+                            print(f"Label: {label}, Score: {score}")
+                            if score > 0.5:
                                 final_weight = find_weight()
                                 list_com(label, final_weight)
                                 print(f'{label} detected')
