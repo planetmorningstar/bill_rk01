@@ -108,6 +108,8 @@ def rate(final_weight, label, taken):
 
 def main(argv):
     global flag, final_weight
+    print("Script started...")  # Debugging print
+    
     if flag == 0:
         find_weight()
         flag = 1
@@ -117,11 +119,14 @@ def main(argv):
         sys.exit(2)
 
     model = argv[0]
-    modelfile = os.path.join(os.path.dirname(os.path.realpath(__file__)), model)
-    print(f'MODEL: {modelfile}')
+    if not os.path.exists(model):
+        print(f"Error: Model file not found at {model}")
+        sys.exit(1)
+    
+    print(f'MODEL: {model}')
     
     try:
-        with ImageImpulseRunner(modelfile) as runner:
+        with ImageImpulseRunner(model) as runner:
             model_info = runner.init()
             print(f'Loaded model: {model_info["project"]["name"]}')
             labels = model_info['model_parameters']['labels']
@@ -130,9 +135,9 @@ def main(argv):
             config = picam2.create_preview_configuration(main={"size": (640, 480)})
             picam2.configure(config)
             picam2.start()
-            time.sleep(2)  # Allow camera to warm up
+            time.sleep(2)
             
-            next_frame = 0  # Limit to ~10 fps
+            next_frame = 0
             while True:
                 if next_frame > now():
                     time.sleep((next_frame - now()) / 1000)
@@ -143,11 +148,12 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
                 
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)  # Convert to grayscale
-                frame = cv2.resize(frame, (96, 96))  # Resize to match model input size
-                frame = frame.astype(np.uint8)  # Ensure data type is uint8
-                frame = frame.flatten().tolist()  # Convert to a list of numbers
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+                frame = cv2.resize(frame, (96, 96))
+                frame = frame.astype(np.uint8)
+                frame = frame.flatten().tolist()
                 
+                print("Attempting classification...")
                 try:
                     start_time = time.time()
                     res = runner.classify(frame)
@@ -174,3 +180,6 @@ def main(argv):
             runner.stop()
         picam2.stop()
         GPIO.cleanup()
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
