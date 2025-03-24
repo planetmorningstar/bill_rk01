@@ -9,13 +9,11 @@ import RPi.GPIO as GPIO
 from hx711 import HX711
 import requests
 import json
-from requests.structures import CaseInsensitiveDict
 from picamera2 import Picamera2
 import cv2
 
 # Global variables
 runner = None
-show_camera = True
 c_value = 0
 flag = 0
 ratio = -1363.992
@@ -108,7 +106,7 @@ def rate(final_weight, label, taken):
 
 def main(argv):
     global flag, final_weight
-    print("Script started...")  # Debugging print
+    print("Script started...")
     
     if flag == 0:
         find_weight()
@@ -132,10 +130,10 @@ def main(argv):
             labels = model_info['model_parameters']['labels']
             
             picam2 = Picamera2()
-            config = picam2.create_preview_configuration(main={"size": (640, 480)})
+            config = picam2.create_still_configuration(main={'size': (96, 96)})
             picam2.configure(config)
             picam2.start()
-            time.sleep(2)  # Allow camera to warm up
+            time.sleep(2)
             
             next_frame = 0
             while True:
@@ -147,38 +145,19 @@ def main(argv):
                     print("Error: Could not capture frame.")
                     continue
                 
-                # Debug: print captured frame info
-                print(f"Captured frame shape: {frame.shape}, dtype: {frame.dtype}, min: {np.min(frame)}, max: {np.max(frame)}")
-                
-                # Convert BGRA (4 channels) to grayscale properly
-                # Use COLOR_BGRA2GRAY because our frame has 4 channels.
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
-                
-                # Resize to expected size (modify if your model expects a different size)
-                frame = cv2.resize(frame, (96, 96))
-                
-                # Normalize pixel values to [0, 1]
-                frame = frame.astype(np.float32) / 255.0
-                
-                # Flatten the image to create a 1D list (9216 features for 96x96 grayscale)
-                frame = frame.flatten().tolist()
-                
-                print(f"Processed frame length: {len(frame)} (expected: 96*96 = 9216)")
+                frame = cv2.cvtColor(frame, cv2.COLOR_YUV420p2RGB)  # Ensure correct format
+                frame = cv2.resize(frame, (96, 96))  # Resize to match model input
+                frame = frame.astype(np.float32) / 255.0  # Normalize
+                frame = np.expand_dims(frame, axis=0)  # Add batch dimension
                 
                 print("Attempting classification...")
                 try:
-                    start_time = time.time()
                     res = runner.classify(frame)
-                    elapsed = time.time() - start_time
-                    if elapsed > 5:
-                        print("Warning: Classification took too long!")
                     if "classification" in res["result"]:
                         print(f'Result ({res["timing"]["dsp"] + res["timing"]["classification"]} ms.)')
-                        # Lower threshold temporarily for debugging (e.g., 0.5 instead of 0.9)
                         for label in labels:
                             score = res['result']['classification'][label]
-                            print(f"Label: {label}, Score: {score}")
-                            if score > 0.5:
+                            if score > 0.9:
                                 final_weight = find_weight()
                                 list_com(label, final_weight)
                                 print(f'{label} detected')
