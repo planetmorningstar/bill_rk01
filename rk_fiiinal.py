@@ -12,24 +12,23 @@ import json
 from picamera2 import Picamera2
 import cv2
 
-# Global variables
+# Global Variables
 runner = None
-c_value = 0
-flag = 0
+show_camera = True
 ratio = -1363.992
 id_product = 1
 list_label = []
 list_weight = []
 count = 0
-final_weight = 0
 taken = 0
 hx = None
+c_value = 0
 
-# Product labels
-a = 'Apple'
-b = 'Banana'
-l = 'Lays'
-c = 'Coke'
+# Product Labels
+PRODUCTS = {
+    'Apple': (0.01, 10),
+    'Lays': (1, 1)
+}
 
 def now():
     return round(time.time() * 1000)
@@ -42,9 +41,6 @@ def sigint_handler(sig, frame):
     sys.exit(0)
 
 signal.signal(signal.SIGINT, sigint_handler)
-
-def help():
-    print('Usage: python classify.py <path_to_model.eim>')
 
 def find_weight():
     global c_value, hx
@@ -67,18 +63,17 @@ def find_weight():
         return 0
 
 def post(label, price, final_rate, taken):
-    global id_product, list_label, list_weight, count, final_weight
+    global id_product, list_label, list_weight, count
     url = "https://automaticbilling-ivrf.onrender.com/product"
     headers = {"Content-Type": "application/json"}
     data = json.dumps({"id": id_product, "name": label, "price": price, "units": "units", "taken": taken, "payable": final_rate})
-    
     try:
         resp = requests.post(url, headers=headers, data=data, timeout=5)
         print(f'Status Code: {resp.status_code}')
         id_product += 1
         list_label.clear()
         list_weight.clear()
-        count, final_weight, taken = 0, 0, 0
+        count, taken = 0, 0
     except requests.exceptions.RequestException as e:
         print(f'Error posting data: {e}')
 
@@ -99,65 +94,50 @@ def list_com(label, final_weight):
         print(f'Error in list comparison: {e}')
 
 def rate(final_weight, label, taken):
-    print(f'Calculating rate for {label}')
-    rates = {a: (0.01, 10), b: (0.02, 20), l: (1, 1), c: (2, 2)}
-    final_rate, price = rates.get(label, (1, 1))
-    post(label, price, final_weight * final_rate, taken)
+    if label in PRODUCTS:
+        final_rate, price = PRODUCTS[label]
+        post(label, price, final_weight * final_rate, taken)
+    else:
+        print(f'Unknown product detected: {label}')
 
 def main(argv):
-    global flag, final_weight
-    print("Script started...")
-    
-    if flag == 0:
-        find_weight()
-        flag = 1
-
+    global runner
     if len(argv) == 0:
-        help()
+        print('Usage: python classify.py <path_to_model.eim>')
         sys.exit(2)
-
+    
     model = argv[0]
     if not os.path.exists(model):
         print(f"Error: Model file not found at {model}")
         sys.exit(1)
     
-    print(f'MODEL: {model}')
-    
+    print(f'Loading model: {model}')
     try:
         with ImageImpulseRunner(model) as runner:
             model_info = runner.init()
-            print(f'Loaded model: {model_info["project"]["name"]}')
             labels = model_info['model_parameters']['labels']
-            
             picam2 = Picamera2()
-            config = picam2.create_still_configuration(main={'size': (96, 96)})
+            config = picam2.create_preview_configuration(main={"size": (96, 96)})
             picam2.configure(config)
             picam2.start()
             time.sleep(2)
             
-            next_frame = 0
             while True:
-                if next_frame > now():
-                    time.sleep((next_frame - now()) / 1000)
-                
                 frame = picam2.capture_array()
                 if frame is None or frame.size == 0:
                     print("Error: Could not capture frame.")
                     continue
                 
-                frame = cv2.cvtColor(frame, cv2.COLOR_YUV420p2RGB)  # Ensure correct format
-                frame = cv2.resize(frame, (96, 96))  # Resize to match model input
-                frame = frame.astype(np.float32) / 255.0  # Normalize
-                frame = np.expand_dims(frame, axis=0)  # Add batch dimension
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = frame.astype(np.float32)
+                frame = frame.flatten().tolist()
                 
-                print("Attempting classification...")
                 try:
                     res = runner.classify(frame)
                     if "classification" in res["result"]:
-                        print(f'Result ({res["timing"]["dsp"] + res["timing"]["classification"]} ms.)')
                         for label in labels:
-                            score = res['result']['classification'][label]
-                            if score > 0.9:
+                            score = res['result']['classification'].get(label, 0)
+                            if score > 0.5:
                                 final_weight = find_weight()
                                 list_com(label, final_weight)
                                 print(f'{label} detected')
@@ -165,8 +145,6 @@ def main(argv):
                         print("No classification results, retrying...")
                 except Exception as e:
                     print(f"Error in classification: {e}")
-
-                next_frame = now() + 100
     except Exception as e:
         print(f'Error: {traceback.format_exc()}')
     finally:
@@ -177,3 +155,4 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
